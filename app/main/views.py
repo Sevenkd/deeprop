@@ -1,8 +1,12 @@
-# coding=utf-8
-from flask import render_template, redirect, request, url_for, session, jsonify, send_file
+"""
+    main.py
+"""
+from flask import render_template, redirect, request, url_for, session, jsonify, send_file, abort, current_app
 from flask_login import login_user, logout_user, current_user, login_required
+from app.main.login import load_user
 
 from app import app, login_manager, db, logger, dbHelper
+
 from app.main import main
 from app.detect import fileOPHelper, ropDetectHelper
 import utils.utils as myTools
@@ -24,33 +28,7 @@ def cors(environ):
 @main.route('/', methods=["GET"])
 @login_required
 def index():
-    return render_template("index.html")
-
-""" 用户登录 """
-@main.route('/login', methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        try:
-            username = request.form.get("username", None)
-            password = request.form.get("password", None)
-            if username is None or password is None:
-                return jsonify(res="error", desc="交互错误:后台未收到用户名或密码")
-            user = dbHelper.userLogin(username.strip(), password)
-            if user is not None:
-                login_user(user)
-                print(user)
-                return jsonify(res="success", desc="用户登录成功", role=user.role)
-            else:
-                return jsonify(res="error", desc="登录错误:用户名密码错误")
-        except Exception as e:
-            return jsonify(res="error", desc="服务器内部错误:{}".format(str(e)))
-    else:
-        return render_template("login.html")
-
-""" user_loader """
-@login_manager.user_loader
-def load_user(id):
-    return dbHelper.queryUserByID(id)
+    return "你好!"
 
 """ 通过deep　ROP网站上传病例 """
 @main.route('/uploadInWeb', methods=["POST"])

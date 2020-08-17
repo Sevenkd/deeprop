@@ -1,4 +1,4 @@
-from app.models import User
+from app.models import User, Upload
 from flask_login import current_user
 import utils.utils as myTools
 import os
