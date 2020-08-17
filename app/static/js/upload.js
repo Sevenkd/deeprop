@@ -1,8 +1,9 @@
 var files=[];
 $(function(){
+
     $("#inputFile").change(function(){
         files=this.files;
-    }); 
+    });
     $("#submitBtn").click(function(){
         if(files.length == 0)
             alert("请添加文件");
@@ -11,9 +12,8 @@ $(function(){
         debugger;
         for(var i = 0; i < files.length; i++){
             fd.append("dfile", files[i]);
+
         }
-        debugger;
-        console.log(fd.length);
         $.ajax({
             url: 'http://192.168.7.181:9005/uploadInWeb',
             method: "post",
@@ -38,5 +38,34 @@ $(function(){
             }
         });
     });
-})
 
+    $("div#dropzone").dropzone({
+        url: "/file/post",
+        paramName: "file", // The name that will be used to transfer the file
+        maxFilesize: 2, // MB
+        accept: function(file, done) {
+            if (file.name === "dropzone.js") {
+                alert("you can't!");
+            }
+            else { done(); }
+        },
+        maxFiles: 3,
+        addRemoveLinks: true
+
+
+    });
+
+
+
+});
+
+Dropzone.options.mydropzone = {
+    paramName: "file", // The name that will be used to transfer the file
+    maxFilesize: 2, // MB
+    accept: function(file, done) {
+        if (file.name === "dropzone.js") {
+            done("Naha, you don't.");
+        }
+        else { done(); }
+    }
+};
