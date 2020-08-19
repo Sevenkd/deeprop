@@ -4,7 +4,8 @@
 from flask import render_template, redirect, request, url_for, session, jsonify, abort
 from flask_login import login_user, logout_user, current_user, login_required
 
-from app import app, login_manager, db, logger, dbHelper
+from app import app, login_manager, db, logger
+from app.dbHelper import dbHelper
 from app.main import main
 
 """ 用户登录 """
@@ -40,13 +41,13 @@ def logout():
     if request.method == "POST":
         return jsonify(res="success")
     else:
-        return "user logout"
+        return redirect(url_for("main.login"))
 
 """ 未授权用户登录处理(触发login_required执行逻辑) """
 @login_manager.unauthorized_handler
 def unauthorized():
     if request.method == "POST" or request.method == "post":
-        return jsonify(res="error", desc="please login first")
+        return jsonify(res="unauthorized", desc="please login first")
     else:
         login_view = login_manager.login_view
         if not login_view:

@@ -1,7 +1,8 @@
 from app.models import User, Upload
+from app import logger, db
 from flask_login import current_user
 import utils.utils as myTools
-import os
+import os, traceback
 
 
 """ 根据用户名查询User """
@@ -46,6 +47,24 @@ def insertUploadRecord(folderPath, recordDict):
         logger.error('folder: [{}] insert error: {}'.format(folderPath, str(e)))
         return None
 
+""" 将ROP模型预测结果插入数据库 """
+def insertROPResult(record_id, l_pred_result, l_confidence, l_typicalImg, r_pred_result, r_confidence, r_typicalImg):
+    try:
+        Upload.query.filter(Upload.id==record_id).update({
+            Upload.left_model_result: l_pred_result,
+            Upload.right_model_result: r_pred_result,
+            Upload.left_img: l_typicalImg,
+            Upload.right_img: r_typicalImg,
+            Upload.l_confidence: l_confidence,
+            Upload.r_confidence: r_confidence
+        })
+        db.session.commit()
+        return "success"
+    except Exception as e:
+        db.session.rollback()
+        logger.error('Exception in insertROPResult for record: [{}]: {}'.format(record_id, str(e)))
+        logger.info(traceback.format_exc())
+        return str(e)
 
 
 

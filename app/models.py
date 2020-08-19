@@ -1,8 +1,8 @@
 from app import db, app
 from werkzeug.security import generate_password_hash, check_password_hash
-import datetime
 import utils.utils as myTools
 from flask_login import current_user
+
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -54,7 +54,7 @@ class Upload(db.Model):
     rpath = db.Column(db.String(256))
     left_model_result = db.Column(db.String(32))
     right_model_result = db.Column(db.String(32))
-    iris_img = db.Column(db.String(128))
+    iris_img = db.Column(db.String(128))             # 虹膜图像路径, 弃用
     left_img = db.Column(db.String(64))
     right_img = db.Column(db.String(64))
     model_report_path = db.Column(db.String(64))
@@ -78,6 +78,8 @@ class Upload(db.Model):
 
         self.left_model_result = "diagnoseing"
         self.right_model_result = "diagnoseing"
+        self.l_confidence = ""
+        self.r_confidence = ""
         self.iris_img = ""
         self.left_img = ""
         self.right_img = ""

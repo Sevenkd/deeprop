@@ -1,3 +1,8 @@
+
+"""
+    views.py
+"""
+
 """ 前端datatable从这个接口获取每页显示的数据 """
 @main.route('/serverside', methods=["GET", "POST"])
 @login_required
@@ -429,6 +434,397 @@ def insertUser():
     role = 'normal'
     pass_hash = generate_password_hash(passwd)
     print(pass_hash) 
+
+
+
+"""
+    file_op.py
+"""
+
+def get_result(infos):
+    result = dict()
+    result['id'] = infos.id
+    result['patient_id'] = infos.patient_id
+    result['patient_name'] = infos.patient_name
+    result['birth_weight'] = infos.birth_weight
+    result['gestation_age'] = infos.gestation_age
+    result['birth_date'] = infos.birth_date.strftime('%Y年%m月%d日')
+    result['age'] = infos.age
+    result['gender'] = infos.gender
+    result['birth_way'] = "" if infos.birth_way is None else infos.birth_way
+    result['l_path'] = infos.lpath
+    result['r_path'] = infos.rpath
+    try:
+        result['l_path_split'] = re.split('app', infos.lpath)[1]
+    except:
+        result['l_path_split'] = ''
+    try:
+        result['r_path_split'] = re.split('app', infos.rpath)[1]
+    except:
+        result['r_path_split'] = ''
+    result['left_img'] = infos.left_img
+    result['right_img'] = infos.right_img
+    result['left_model_result'] = infos.left_model_result
+    result['right_model_result'] = infos.right_model_result
+    result['d_advice'] = "" if infos.d_advice is None else infos.d_advice
+    return result
+
+""" 在生成诊断报告过程中统一数据格式 """
+def clear_format(infos):
+    infos['birth_date'] = datetime.datetime.strptime(infos['birth_date'], '%Y年%m月%d日')
+    try:
+        infos['left_img'] = os.path.split(infos['left_img'])[1]
+    except:
+        infos['left_img'] = infos['left_img']
+    try:
+        infos['right_img'] = os.path.split(infos['right_img'])[1]
+    except:
+        infos['right_img'] = infos['right_img']
+    return infos
+
+""" 绘制医生诊断报告 """
+def draw_dreport(infos):
+    result = query_id(int(infos['id']))
+    infos['l_path'] = result.lpath
+    infos['r_path'] = result.rpath
+    filename = draw_diagnose_report(infos, left_img=infos['left_img'], right_img=infos['right_img'])
+    return filename
+
+""" 导出数据 """
+def export(infos):
+    
+
+    workbook = xlwt.Workbook(encoding='utf-8')
+    worksheet = workbook.add_sheet('My Worksheet')
+    font = xlwt.Font()  # Create the Font
+    font.name = 'Times New Roman'
+    font.height = 12 * 15
+    style = xlwt.XFStyle()  # Create the Style
+    style.font = font  # Apply the Font to the Style
+    worksheet.col(0).width = 256 * 30
+    worksheet.col(1).width = 256 * 15
+    worksheet.col(2).width = 256 * 20
+    worksheet.col(7).width = 256 * 40
+    worksheet.col(8).width = 256 * 30
+    worksheet.col(9).width = 256 * 40
+    worksheet.write(0, 0, 'DeepRop导出记录', style)
+    worksheet.write(1, 0, '导出时间：' + time.strftime('%Y-%m-%d %T'), style)
+    worksheet.write(1, 1, '导出用户：' + session['USERNAME'], style)
+    worksheet.write(2, 0, '病人姓名', style)
+    worksheet.write(2, 1, '病人ID', style)
+    worksheet.write(2, 2, '出生距检查天数', style)
+    worksheet.write(2, 3, '母亲孕周', style)
+    worksheet.write(2, 4, '出生体重(g)', style)
+    worksheet.write(2, 5, '性别', style)
+    worksheet.write(2, 6, '出生日期', style)
+    worksheet.write(2, 7, '医生诊断', style)
+    worksheet.write(2, 8, '系统诊断', style)
+    worksheet.write(2, 9, '备注', style)
+    for i, info in enumerate(infos):
+        row = i + 3
+        worksheet.write(row, 0, info.patient_name, style)
+        worksheet.write(row, 1, info.patient_id, style)
+        worksheet.write(row, 2, str((info.date - info.birth_date).days), style)
+        worksheet.write(row, 3, info.gestation_age, style)
+        worksheet.write(row, 4, info.birth_weight, style)
+        worksheet.write(row, 5, info.gender, style)
+        worksheet.write(row, 6, info.birth_date.strftime('%Y-%m-%d'), style)
+        worksheet.write(row, 7, '左眼：' + translate_result(info.doctor_left_result) + ' 右眼：' + translate_result(
+            info.doctor_right_result), style)
+        if info.left_model_result == '' or info.left_model_result == None:
+            left_model_result = '无信息'
+        else:
+            left_model_result = info.left_model_result
+        if info.right_model_result == '' or info.right_model_result == None:
+            right_model_result = '无信息'
+        else:
+            right_model_result = info.right_model_result
+        worksheet.write(row, 8, '左眼：' + left_model_result + ' 右眼：' + right_model_result, style)
+        worksheet.write(row, 9, info.remarks)
+    # worksheet.write(1, 0, label = 'Formatted value', style) # Apply the Style to the Cell
+    if not os.path.exists(os.path.join(app.config['EXPORT'], session['USERNAME'])):
+        os.makedirs(os.path.join(app.config['EXPORT'], session['USERNAME']), exist_ok=True)
+    filename = 'export' + '_' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.xls'
+    i = 0
+    while os.path.exists(os.path.join(app.config['EXPORT'], session['USERNAME'], filename)):
+        i = i + 1
+        filename = 'export' + '_' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '_' + str(i) + '.xls'
+    workbook.save(os.path.join(app.config['EXPORT'], session['USERNAME'], filename))
+    return filename
+
+
+def translate_result(result):
+    period_t = dict(
+        {'normal': '正常', 'stage1': 'rop1期', 'stage2': 'rop2期', 'stage3': 'rop3期', 'stage4': 'rop4期', 'stage5': 'rop5期',
+        'other': '其它病症', '': ''})
+    area_t = dict({'area1': '1区', 'area2': '2区', 'area3': '3区', '': ''})
+    plus_t = dict({'true': '有plus病症', 'false': '', '': ''})
+    tr = result.split('_')
+    if len(tr) == 3:
+        return(period_t.get(tr[0], '') + ' ' + area_t.get(tr[1], '') + ' ' + plus_t.get(tr[2], ''))
+    elif len(tr) == 2:
+        return(period_t.get(tr[0], '') + ' ' + tr[1])
+    else:
+        return 
+
+
+""" 异步发送邮件 """
+def send_async_email(app, msg):
+    with app.app_context():
+        mail.send(msg)
+
+""" 向开发人员发送邮件 """
+def send_email(subject, template, **kwargs):
+    # #msg = MIMEText(render_template(template + '.html', **kwargs), 'html', 'utf-8')
+    # msg = MIMEText("开始test...")
+    # msg['Subject'] = subject
+    # msg['From'] = app.config['MAIL_USERNAME']
+    # msg['To'] = ";".join(app.config['ADMINS'])
+    # try:
+    #     send_smtp = smtplib.SMTP()
+    #     send_smtp.connect(app.config['MAIL_SERVER'])
+    #     send_smtp.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+    #     send_smtp.sendmail(app.config['MAIL_USERNAME'], app.config['ADMINS'], msg.as_string())
+    #     return True
+    # except Exception as e:
+    #     logger.error('user {} send email errer {}'.format(session['USERNAME'], str(e)))
+    #     return False
+    try:
+        msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=app.config['ADMINS'])
+        msg.html = render_template(template + '.html', **kwargs)
+        msg.body = render_template(template + '.txt', **kwargs)
+        thr = Thread(target=send_async_email, args=[app, msg])
+        thr.start()
+        return thr
+    except Exception as e:
+        logger.error('user {} send email errer {}'.format(session['USERNAME'], str(e)))
+
+
+"""
+    detect.py
+"""
+
+
+""" 生成医生诊断报告 """
+def draw_diagnose_report(info, left_img=None, right_img=None):
+    os_p = (100, 1100); os_nor_p = (280, 1100); os_rop_mid_p = (550, 1100); os_rop_ser_p = (830, 1100);
+    od_p = (100, 1200); od_nor_p = (280, 1200); od_rop_mid_p = (550, 1200); od_rop_ser_p = (830, 1200);
+    background = Image.open(app.config['D_BACKGROUND'])
+    ttfont = ImageFont.truetype(app.config['FONTS'], 28)
+    draw = ImageDraw.Draw(background)
+    size = (500, 400)
+    """ 绘制病人基本信息 """
+    try:
+        draw.text((125, 245), info.get('patient_name','---'), fill=(0,0,0), font=ttfont)
+        draw.text((425, 245), info.get('gender','---'), fill=(0,0,0), font=ttfont)
+        draw.text((675, 245), str(info.get('birth_weight','---')), fill=(0,0,0), font=ttfont)
+        draw.text((1000, 245), info.get('patient_id','---'), fill=(0,0,0), font=ttfont)
+        draw.text((125, 315), info.get('age','---'), fill=(0,0,0), font=ttfont)
+        draw.text((425, 315), str(info.get('gestation_age','---')), fill=(0,0,0), font=ttfont)
+        draw.text((675, 315), info.get('birth_way','---'), fill=(0,0,0), font=ttfont)
+        draw.text((900, 315), info['birth_date'].strftime('%Y年%m月%d日'), fill=(0,0,0), font=ttfont)
+    except Exception as e:
+        logger.error('user {} draw some infos on report error: {}'.format(session['USERNAME'], str(e)))
+
+    """ 绘制眼底图像 """
+    try:
+        if not left_img:
+            im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['l_path'], info['left_img']))
+        else:
+            im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['l_path'], info['left_img']))
+        im = im.resize(size, Image.ANTIALIAS)
+        background.paste(im, (40, 450, 540, 850))
+    except Exception as e:
+        logger.info('user {} read photos error when draw report: {}'.format(session['USERNAME'], str(e)))
+    try:
+        if not right_img:
+            im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['r_path'], info['right_img']))
+        else:
+            im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['r_path'], info['right_img']))
+        im = im.resize(size, Image.ANTIALIAS)
+        background.paste(im, (640, 450, 1140, 850))
+    except Exception as e:
+        logger.info('user {} read photos error when draw report: {}'.format(session['USERNAME'], str(e)))
+        
+    """ 绘制医生诊断意见 """
+    line_height = 920
+    line_width = 39
+    try:
+        advice = info.get('advice')
+        for j in range(math.ceil(len(advice)+2 / line_width)):
+            if j == 0:
+                draw.text((100, line_height), advice[0:line_width-2], fill=(0,0,0), font=ttfont)
+            elif j == math.ceil(len(advice)+2 / line_width) - 1:
+                draw.text((45, line_height), advice[j*line_width-2:len(advice)], fill=(0,0,0), font=ttfont)
+            else:
+                draw.text((45, line_height), advice[j*line_width-2:(j+1)*line_width-2], fill=(0,0,0), font=ttfont)
+            line_height += 40
+    except:
+        logger.error('split string error')
+
+    # 文件名等
+    filename = 'dreport' + '_' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.png'
+    if not os.path.exists(os.path.join(app.config['DREPORT'], session['USERNAME'])):
+        os.makedirs(os.path.join(app.config['DREPORT'], session['USERNAME']), exist_ok=True)
+    num = 0
+    while os.path.exists(os.path.join(app.config['DREPORT'], session['USERNAME'], filename)):
+        num = num + 1
+        filename = 'dreport' + '_' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '_' + str(num) + '.png'
+    background.save(os.path.join(app.config['DREPORT'], session['USERNAME'], filename))
+    return filename
+
+os_p = (100, 1100); os_nor_p = (280, 1100); os_rop_mid_p = (550, 1100); os_rop_ser_p = (830, 1100);
+od_p = (100, 1200); od_nor_p = (280, 1200); od_rop_mid_p = (550, 1200); od_rop_ser_p = (830, 1200);
+def draw_report(l_model_result, r_model_result, info, left_img=None, right_img=None):
+    background = Image.open(app.config['BACKGROUND'])
+    ttfont = ImageFont.truetype(app.config['FONTS'], 28)
+    draw = ImageDraw.Draw(background)
+    size = (500, 400)
+    try:
+        draw.text((125, 245), info.get('patient_name','未知'), fill=(0,0,0), font=ttfont)
+        draw.text((425, 245), info.get('gender','未知'), fill=(0,0,0), font=ttfont)
+        draw.text((675, 245), str(info.get('birth_weight','未知')), fill=(0,0,0), font=ttfont)
+        draw.text((1000, 245), info.get('patient_id','未知'), fill=(0,0,0), font=ttfont)
+        draw.text((125, 315), info.get('age','未知'), fill=(0,0,0), font=ttfont)
+        draw.text((425, 315), str(info.get('gestation_age','未知')), fill=(0,0,0), font=ttfont)
+        draw.text((675, 315), info.get('birth_way','未知'), fill=(0,0,0), font=ttfont)
+        draw.text((900, 315), info['birth_date'].strftime('%Y年%m月%d日'), fill=(0,0,0), font=ttfont)
+    except Exception as e:
+        logger.error('user {} draw some infos on report error: {}'.format(session['USERNAME'], str(e)))
+    #draw.text((100, 1000), u'类型', fill=(0,0,0), font=ttfont)
+    #draw.text((300, 1000), u'正常', fill=(0,0,0), font=ttfont)
+    #draw.text((500, 1000), u'ROP 1/2 期', fill=(0,0,0), font=ttfont)
+    #draw.text((750, 1000), u'ROP 3/4/5 期', fill=(0,0,0), font=ttfont)
+    if l_model_result != '':
+        if int(l_model_result['code']) == 1:
+            if l_model_result['diagnose'] == 'normal':
+                pred_result = "正常"
+                confidence_0 = l_model_result['y_rop_normal'][0]
+                confidence_1 = l_model_result['y_rop_normal'][1]
+                draw.text(os_p, u'OS', fill=(0, 0, 0), font=ttfont)
+                draw.text(os_nor_p, u'%.2f%%' % (confidence_0 * 100.), fill=(0, 0, 0), font=ttfont)
+                draw.text(os_rop_mid_p, u'%.2f%%' % (confidence_1 * 100.), fill=(0, 0, 0), font=ttfont)
+            elif l_model_result['diagnose'] == "anomaly":
+                pred_result = "异常"
+                draw.text(os_p, u'OS', fill=(0, 0, 0), font=ttfont)
+                draw.text(os_nor_p, u'null', fill=(0, 0, 0), font=ttfont)
+                draw.text(os_rop_mid_p, u'null', fill=(0, 0, 0), font=ttfont)
+                draw.text(os_rop_ser_p, u'null', fill=(0, 0, 0), font=ttfont)
+            else:
+                if l_model_result['diagnose'] == "stage2":
+                    pred_result = "ROP轻度"
+                else:
+                    pred_result = "ROP重度"
+                confidence_0 = l_model_result['y_rop_normal'][0]
+                confidence_1 = l_model_result['y_rop_normal'][1]
+                confidence_2 = l_model_result['y_stage_2_3'][0]
+                confidence_3 = l_model_result['y_stage_2_3'][1]
+                draw.text(os_p, u'OS', fill=(0, 0, 0), font=ttfont)
+                draw.text(os_nor_p, u'%.2f%%' % (confidence_0 * 100.), fill=(0, 0, 0), font=ttfont)
+                draw.text(os_rop_mid_p, u'%.2f%%' % (confidence_2 * confidence_1 * 100.), fill=(0, 0, 0), font=ttfont)
+                draw.text(os_rop_ser_p, u'%.2f%%' % (confidence_3 * confidence_1 * 100.), fill=(0, 0, 0), font=ttfont)
+            draw.text((250, 865), pred_result, fill=(0, 0, 0), font=ttfont)
+            try:
+                if not left_img:
+                    im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['l_path'], l_model_result['imgs'][0]))
+                else:
+                    im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['l_path'], info['left_img']))
+                l_img = l_model_result['imgs'][0]
+                im = im.resize(size, Image.ANTIALIAS)
+                background.paste(im, (40, 450, 540, 850))
+            except Exception as e:
+                logger.info('user {} read photos error when draw report: {}'.format(session['USERNAME'], str(e)))
+                l_img = ''
+            lr = pred_result
+        else:
+            draw.text((100, 1100), u'OS', fill=(0, 0, 0), font=ttfont)
+            draw.text((250, 865), u'无信息', fill=(0, 0, 0), font=ttfont)
+            lr = ''
+            l_img = ''
+    else:
+        draw.text((100, 1100), u'OS', fill=(0, 0, 0), font=ttfont)
+        draw.text((250, 865), u'无信息', fill=(0, 0, 0), font=ttfont)
+        lr = ''
+        l_img = ''
+
+    if r_model_result != '':
+        if int(r_model_result['code']) == 1:
+            if r_model_result['diagnose'] == 'normal':
+                pred_result = "正常"
+                confidence_0 = r_model_result['y_rop_normal'][0]
+                confidence_1 = r_model_result['y_rop_normal'][1]
+                draw.text(od_p, u'OD', fill=(0, 0, 0), font=ttfont)
+                draw.text(od_nor_p, u'%.2f%%' % (confidence_0 * 100.), fill=(0, 0, 0), font=ttfont)
+                draw.text(od_rop_mid_p, u'%.2f%%' % (confidence_1 * 100.), fill=(0, 0, 0), font=ttfont)
+            elif r_model_result['diagnose'] == "anomaly":
+                pred_result = "异常"
+                draw.text(od_p, u'OD', fill=(0, 0, 0), font=ttfont)
+                draw.text(od_nor_p, u'null', fill=(0, 0, 0), font=ttfont)
+                draw.text(od_rop_mid_p, u'null', fill=(0, 0, 0), font=ttfont)
+                draw.text(od_rop_ser_p, u'null', fill=(0, 0, 0), font=ttfont)
+            else:
+                if r_model_result['diagnose'] == "stage2":
+                    pred_result = "ROP轻度"
+                else:
+                    pred_result = "ROP重度"
+                confidence_0 = r_model_result['y_rop_normal'][0]
+                confidence_1 = r_model_result['y_rop_normal'][1]
+                confidence_2 = r_model_result['y_stage_2_3'][0]
+                confidence_3 = r_model_result['y_stage_2_3'][1]
+                draw.text(od_p, u'OD', fill=(0, 0, 0), font=ttfont)
+                draw.text(od_nor_p, u'%.2f%%' % (confidence_0 * 100.), fill=(0, 0, 0), font=ttfont)
+                draw.text(od_rop_mid_p, u'%.2f%%' % (confidence_2 * confidence_1 * 100.), fill=(0, 0, 0), font=ttfont)
+                draw.text(od_rop_ser_p, u'%.2f%%' % (confidence_3 * confidence_1 * 100.), fill=(0, 0, 0), font=ttfont)
+            draw.text((850, 865), pred_result, fill=(0, 0, 0), font=ttfont)
+            try:
+                if not right_img:
+                    im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['r_path'], r_model_result['imgs'][0]))
+                else:
+                    im = Image.open(os.path.join(app.config['UPLOAD'], session['USERNAME'], info['r_path'], info['right_img']))
+                r_img = r_model_result['imgs'][0]
+                im = im.resize(size, Image.ANTIALIAS)
+                background.paste(im, (640, 450, 1140, 850))
+            except Exception as e:
+                logger.info('user {} read photos error when draw report: {}'.format(session['USERNAME'], str(e)))
+                r_img = ''
+            rr = pred_result
+        else:
+            draw.text((100, 1200), u'OD', fill=(0, 0, 0), font=ttfont)
+            draw.text((850, 865), u'无信息', fill=(0, 0, 0), font=ttfont)
+            rr = ''
+            r_img = ''
+    else:
+        draw.text((100, 1200), u'OD', fill=(0, 0, 0), font=ttfont)
+        draw.text((850, 865), u'无信息', fill=(0, 0, 0), font=ttfont)
+        rr = ''
+        r_img = ''
+
+    line_height = 1375
+    if info.get('advice'):
+        try:
+            advice = info.get('advice').split('__');
+        except:
+            logger.error('split string error');
+        for i in range(len(advice)):
+            if advice[i]:
+                for j in range(math.ceil(len(advice[i]) / 30)):
+                    if j == 0:
+                        draw.text((40, line_height), u'{}.'.format(str(i+1)), fill=(0,0,0), font=ttfont)
+                    if j == math.ceil(len(advice[i]) / 30) - 1:
+                        draw.text((80, line_height), advice[i][j*30:len(advice[i])], fill=(0,0,0), font=ttfont)
+                    else:
+                        draw.text((80, line_height), advice[i][j*30:(j+1)*30], fill=(0,0,0), font=ttfont)
+                    line_height += 40
+    filename = 'report' + '_' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.png'
+    if not os.path.exists(os.path.join(app.config['REPORT'], session['USERNAME'])):
+        os.makedirs(os.path.join(app.config['REPORT'], session['USERNAME']), exist_ok=True)
+    num = 0
+    while os.path.exists(os.path.join(app.config['REPORT'], session['USERNAME'], filename)):
+        num = num + 1
+        filename = 'report' + '_' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '_' + str(num) + '.png'
+    background.save(os.path.join(app.config['REPORT'], session['USERNAME'], filename))
+    return filename, lr, rr, l_img, r_img
+
 
 
 
