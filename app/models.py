@@ -1,6 +1,6 @@
 from app import db, app
 from werkzeug.security import generate_password_hash, check_password_hash
-import utils.utils as myTools
+import myTools.utils as myTools
 from flask_login import current_user
 
 
@@ -112,3 +112,18 @@ class Upload(db.Model):
 
     def get_id(self):
         return self.id
+
+
+class Hospital(db.Model):
+    __tablename__ = "hospital"
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_name = db.Column(db.String(128))
+
+    def __init__(self, hospital_name):
+        self.hospital_name = hospital_name
+    
+    def __repr__(self):
+        return '<hospital_name: {}, id: {}>',format(self.hospital_name, self.id)
+
+    def obj2dict(self):
+        return {"hospital_name": self.hospital_name, "id": self.id}

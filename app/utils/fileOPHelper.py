@@ -7,7 +7,7 @@ from flask import session, send_from_directory, flash, render_template
 from flask_login import current_user
 
 from app import app, logger
-import utils.utils as myTools
+import myTools.utils as myTools
 from app.dbHelper import dbHelper
 
 import numpy as np
