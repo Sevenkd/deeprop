@@ -3,7 +3,7 @@ $(function(){
         var username = $("#inputUsr").val();
         var password = $("#inputPassword").val();
         $.ajax({
-                    url: '/login', // 地址+路由后缀
+                    url: 'http://127.0.0.1:5000/login_verify', // 地址+路由后缀
                     type: "post",
                     data:{
                         "username": username,
@@ -14,10 +14,10 @@ $(function(){
                     success: function (data) { // 和后台交互成功后执行的函数
                         if (data.res == 'success') {
                             alert("登陆成功！");
-                            window.location.href = "/";
+                            window.location.href = ".../templates/index.html";
                             // $(location).prop('href', '../index/index.html');
-                            // debugger;
-                            // console.log(data);
+                            debugger;
+                            console.log(data);
                         }
                         else {
                             alert("账号或密码错误");
