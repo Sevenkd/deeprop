@@ -13,18 +13,21 @@ $(function(){
                     async: false, // 表示同步或异步, 根据实际情况设置
                     success: function (data) { // 和后台交互成功后执行的函数
                         if (data.res == 'success') {
-                            alert("登陆成功！");
-                            window.location.href = "/";
-                            // $(location).prop('href', '../index/index.html');
-                            // debugger;
-                            // console.log(data);
+                            console.log(data)
+                            let nextView = data.next;
+                            if (!nextView) {
+                                window.location.href = "/";
+                                return;
+                            }
+                            window.location.href = nextView;
                         }
                         else {
-                            alert("账号或密码错误");
+                            // TODO: flush 错误信息
+                            alert(data.desc);
                         }
                     },
                     error: function () { // 因网络错误或服务器后台错误(404, 500等情况)等没有成功完成数据交互执行的函数
-                        alert("error");
+                        alert("网络错误, 请稍后再试!");
                     }
                 });
     });

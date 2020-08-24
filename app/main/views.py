@@ -29,7 +29,7 @@ def cors(environ):
 @main.route('/', methods=["GET"])
 @login_required
 def index():
-    return "你好!"
+    return render_template("index.html")
 
 """ 通过deep　ROP网站上传病例 """
 @main.route('/uploadInWeb', methods=["POST"])
